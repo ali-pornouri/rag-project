@@ -73,17 +73,6 @@ python ingest.py
 python rag.py
 ```
 
-### 🔮 Roadmap
-- [x] Basic RAG system
-- [x] PDF and TXT support
-- [x] GitHub repository
-- [ ] Streamlit web interface
-- [ ] Support for 100+ PDF files
-- [ ] Source citation (book + page number)
-- [ ] Docker containerization
-- [ ] CI/CD pipeline
-
----
 
 ## 🇮🇷 فارسی
 
