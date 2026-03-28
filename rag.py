@@ -1,5 +1,3 @@
-# فایل rag.py — سیستم پرسش و پاسخ
-
 import os
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -9,50 +7,52 @@ from config import (
     CHROMA_PATH,
     COLLECTION_NAME,
     GROQ_MODEL,
-    GROQ_API_KEY
+    GROQ_API_KEY,
+    MAX_TOKENS,
+    TEMPERATURE,
+    TOP_K
 )
 
 def load_vectorstore():
-    """
-    پایگاه داده ChromaDB رو لود میکنه
-    """
-    embedding_model = HuggingFaceEmbeddings(
-        model_name=EMBEDDING_MODEL
-    )
-    
+    embedding_model = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
     vectorstore = Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embedding_model,
         persist_directory=CHROMA_PATH
     )
-    
     print("✅ پایگاه داده لود شد")
     return vectorstore
 
-
-def search_documents(vectorstore, query, k=3):
-    """
-    توی ChromaDB دنبال متن مرتبط با سوال میگرده
-    k = تعداد chunk هایی که برمیگردونه
-    """
-    results = vectorstore.similarity_search(query, k=k)
+def search_documents(vectorstore, query, k=TOP_K):
+    results = vectorstore.similarity_search_with_score(query, k=k)
+    context_parts = []
+    sources = []
+    seen = set()
     
-    # متن chunk های پیدا شده رو کنار هم میذاره
-    context = "\n\n".join([doc.page_content for doc in results])
+    for doc, score in results:
+        context_parts.append(doc.page_content)
+        source = doc.metadata.get("source", "نامشخص")
+        source = source.replace("\\", "/").split("/")[-1]
+        if source.startswith("temp_"):
+            source = source[5:]
+        page = doc.metadata.get("page", "نامشخص")
+        key = f"{source}-{page}"
+        if key not in seen:
+            seen.add(key)
+            sources.append({
+                "file": source,
+                "page": page,
+                "score": round(score, 3)
+            })
     
+    context = "\n\n".join(context_parts)
     print(f"✅ {len(results)} بخش مرتبط پیدا شد")
-    return context
-
+    return context, sources
 
 def ask_groq(context, question):
-    """
-    سوال + متن مرتبط رو به Groq میفرسته و جواب میگیره
-    """
     client = Groq(api_key=GROQ_API_KEY)
-    
-    # prompt رو میسازه
-    prompt = f"""فقط با استفاده از اطلاعات زیر به سوال جواب بده.
-اگر جواب توی اطلاعات نبود بگو: "این اطلاعات در اسناد من نیست."
+    prompt = f"""بر اساس اطلاعات زیر به سوال جواب بده.
+جواب کامل و مفید بده. اگه اطلاعات نبود بگو: "این اطلاعات در اسناد من نیست."
 
 اطلاعات:
 {context}
@@ -63,34 +63,28 @@ def ask_groq(context, question):
 
     response = client.chat.completions.create(
         model=GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=MAX_TOKENS,
+        temperature=TEMPERATURE
     )
-    
     return response.choices[0].message.content
 
-
 def ask(question):
-    """
-    تابع اصلی — همه مراحل رو یکی یکی انجام میده
-    """
     print(f"\n❓ سوال: {question}")
     print("=" * 50)
     
-    # مرحله ۱ — لود کردن ChromaDB
     vectorstore = load_vectorstore()
-    
-    # مرحله ۲ — جستجوی متن مرتبط
-    context = search_documents(vectorstore, question)
-    
-    # مرحله ۳ — گرفتن جواب از Groq
+    context, sources = search_documents(vectorstore, question)
     answer = ask_groq(context, question)
     
+    source_text = "\n\n---\n📚 **منابع:**\n"
+    for s in sources:
+        if s["page"] != "نامشخص":
+            source_text += f"- 📖 **{s['file']}** — صفحه {int(s['page']) + 1}\n"
+        else:
+            source_text += f"- 📖 **{s['file']}**\n"
+    
+    full_answer = answer + source_text
     print(f"\n💬 جواب: {answer}")
     print("=" * 50)
-    
-    return answer
-
-
-# اجرای مستقیم
-if __name__ == "__main__":
-    ask("آدرس شرکت کجاست؟")
+    return full_answer
