@@ -178,8 +178,3 @@ rag-project/
 
 ---
 
-**Ctrl+S** بزن و بعد:
-```
-git add README.md
-git commit -m "docs: add complete bilingual README (EN/FA)"
-git push
