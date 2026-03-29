@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import time
-from ingest import ingest, get_existing_sources, delete_document, vacuum_database
+from ingest import ingest, get_existing_sources, delete_document, vacuum_database, get_database_stats
 from rag import ask
 
 # ✅ cache کردن مدل برای جلوگیری از لود مجدد
@@ -337,6 +337,33 @@ with st.sidebar:
                 st.rerun()
             else:
                 st.error("❌ " + t["vacuum_error"])
+
+    
+    # آمار بانک اطلاعاتی
+    st.markdown("---")
+    st.markdown(f'<div class="section-header">📊 {"آمار بانک" if is_fa else "DB Stats"}</div>', unsafe_allow_html=True)
+    
+    try:
+        stats = get_database_stats()
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            st.markdown(
+                f'<div class="stat-box">'
+                f'<div class="stat-number">{stats["total_docs"]}</div>'
+                f'<div class="stat-label">{"کتاب" if is_fa else "Books"}</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+        with col_s2:
+            st.markdown(
+                f'<div class="stat-box">'
+                f'<div class="stat-number">{stats["total_chunks"]}</div>'
+                f'<div class="stat-label">Chunks</div>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+    except Exception as e:
+        st.caption("⚠️ " + str(e))
 
     st.markdown("---")
     st.markdown(f'<div class="section-header">⚙️ {t["settings"]}</div>', unsafe_allow_html=True)
