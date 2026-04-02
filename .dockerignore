@@ -1,15 +1,31 @@
+# Virtual environment
 venv/
+
+# Sensitive files
 .env
+
+# ChromaDB database
 chroma_db/
+
+# Document files (not needed in container)
 *.pdf
-*.txt
+docs/
+uploads/
 temp_*
+
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
-.git/
-.gitignore
+
+# System files
 .DS_Store
 Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# IDE
 .vscode/
 .idea/
